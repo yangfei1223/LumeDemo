@@ -171,6 +171,69 @@ public:
         }
     }
 
+    // Input handling
+    void OnMouseMove(double x, double y) override
+    {
+        if (mouseLeftDown_) {
+            float dx = static_cast<float>(x - lastMouseX_) * rotateSensitivity_;
+            float dy = static_cast<float>(y - lastMouseY_) * rotateSensitivity_;
+            
+            cameraYaw_ += dx;
+            cameraPitch_ += dy;
+            cameraPitch_ = Math::clamp(cameraPitch_, -Math::PI / 2.0f + 0.1f, Math::PI / 2.0f - 0.1f);
+            
+            UpdateCameraTransform();
+        } else if (mouseRightDown_) {
+            float dx = static_cast<float>(x - lastMouseX_) * panSensitivity_ * cameraDistance_;
+            float dy = static_cast<float>(y - lastMouseY_) * panSensitivity_ * cameraDistance_;
+            
+            // Calculate right and up vectors
+            Math::Vec3 forward(
+                Math::cos(cameraPitch_) * Math::sin(cameraYaw_),
+                Math::sin(cameraPitch_),
+                Math::cos(cameraPitch_) * Math::cos(cameraYaw_)
+            );
+            forward = Math::Normalize(forward);
+            
+            Math::Vec3 right = Math::Normalize(Math::Cross(forward, Math::Vec3(0.0f, 1.0f, 0.0f)));
+            Math::Vec3 up = Math::Normalize(Math::Cross(right, forward));
+            
+            cameraTarget_ += right * dx - up * dy;
+            UpdateCameraTransform();
+        }
+        
+        lastMouseX_ = x;
+        lastMouseY_ = y;
+    }
+
+    void OnMouseButton(int button, int action, int mods) override
+    {
+        if (button == 0) { // GLFW_MOUSE_BUTTON_LEFT
+            mouseLeftDown_ = (action == 1); // GLFW_PRESS
+        } else if (button == 1) { // GLFW_MOUSE_BUTTON_RIGHT
+            mouseRightDown_ = (action == 1); // GLFW_PRESS
+        }
+    }
+
+    void OnMouseScroll(double xoffset, double yoffset) override
+    {
+        cameraDistance_ -= static_cast<float>(yoffset) * zoomSensitivity_ * cameraDistance_;
+        cameraDistance_ = Math::clamp(cameraDistance_, 0.1f, 100.0f);
+        UpdateCameraTransform();
+    }
+
+    void OnKey(int key, int scancode, int action, int mods) override
+    {
+        // Reset camera position (R key = 82)
+        if (key == 82 && action == 1) { // GLFW_KEY_R, GLFW_PRESS
+            cameraDistance_ = 3.0f;
+            cameraYaw_ = 0.0f;
+            cameraPitch_ = 0.0f;
+            cameraTarget_ = Math::Vec3(0.0f, 0.0f, 0.0f);
+            UpdateCameraTransform();
+        }
+    }
+
 private:
     RenderHandleReference CreateRenderNodeGraph(const string_view rngPath)
     {
@@ -206,6 +269,60 @@ private:
         }
     }
 
+    void UpdateCameraTransform()
+    {
+        if (!transformManager_ || cameraEntity_ == Entity {}) {
+            return;
+        }
+        
+        // Calculate camera position from spherical coordinates
+        float x = cameraDistance_ * Math::cos(cameraPitch_) * Math::sin(cameraYaw_);
+        float y = cameraDistance_ * Math::sin(cameraPitch_);
+        float z = cameraDistance_ * Math::cos(cameraPitch_) * Math::cos(cameraYaw_);
+        
+        Math::Vec3 cameraPos = cameraTarget_ + Math::Vec3(x, y, z);
+        
+        // Update transform
+        auto handle = transformManager_->Write(cameraEntity_);
+        if (handle) {
+            handle->position = cameraPos;
+            
+            // Calculate rotation to look at target using quaternion
+            Math::Vec3 forward = Math::Normalize(cameraTarget_ - cameraPos);
+            Math::Vec3 right = Math::Normalize(Math::Cross(forward, Math::Vec3(0.0f, 1.0f, 0.0f)));
+            Math::Vec3 up = Math::Cross(right, forward);
+            
+            // Create rotation from basis vectors
+            // Using LookRotation-like approach
+            float trace = right.x + up.y + forward.z;
+            if (trace > 0.0f) {
+                float s = Math::sqrt(trace + 1.0f) * 2.0f;
+                handle->rotation.w = 0.25f * s;
+                handle->rotation.x = (up.z - forward.y) / s;
+                handle->rotation.y = (forward.x - right.z) / s;
+                handle->rotation.z = (right.y - up.x) / s;
+            } else if (right.x > up.y && right.x > forward.z) {
+                float s = Math::sqrt(1.0f + right.x - up.y - forward.z) * 2.0f;
+                handle->rotation.w = (up.z - forward.y) / s;
+                handle->rotation.x = 0.25f * s;
+                handle->rotation.y = (up.x + right.y) / s;
+                handle->rotation.z = (forward.x + right.z) / s;
+            } else if (up.y > forward.z) {
+                float s = Math::sqrt(1.0f + up.y - right.x - forward.z) * 2.0f;
+                handle->rotation.w = (forward.x - right.z) / s;
+                handle->rotation.x = (up.x + right.y) / s;
+                handle->rotation.y = 0.25f * s;
+                handle->rotation.z = (forward.y + up.z) / s;
+            } else {
+                float s = Math::sqrt(1.0f + forward.z - right.x - up.y) * 2.0f;
+                handle->rotation.w = (right.y - up.x) / s;
+                handle->rotation.x = (forward.x + right.z) / s;
+                handle->rotation.y = (forward.y + up.z) / s;
+                handle->rotation.z = 0.25f * s;
+            }
+        }
+    }
+
 private:
     IEngine::Ptr engine_;
     IEcs::Ptr ecs_;
@@ -224,6 +341,23 @@ private:
     ICameraComponentManager* cameraManager_;
     vector<ResourceData> importedResources_;
     bool updateCamera_ = true;
+    
+    // Camera control
+    float cameraDistance_ = 3.0f;
+    float cameraYaw_ = 0.0f;
+    float cameraPitch_ = 0.0f;
+    Math::Vec3 cameraTarget_ = Math::Vec3(0.0f, 0.0f, 0.0f);
+    
+    // Mouse state
+    bool mouseLeftDown_ = false;
+    bool mouseRightDown_ = false;
+    double lastMouseX_ = 0.0;
+    double lastMouseY_ = 0.0;
+    
+    // Sensitivity
+    float rotateSensitivity_ = 0.005f;
+    float zoomSensitivity_ = 0.1f;
+    float panSensitivity_ = 0.01f;
 };
 
 IApplication* createApplication()
