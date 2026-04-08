@@ -6,10 +6,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 #
-# Target: Vulkan. Install VulkanSDK from https://vulkan.lunarg.com/sdk/home#windows.
+# Target: Vulkan. Install VulkanSDK from https://vulkan.lunarg.com/sdk/home
 #
 find_package(Vulkan REQUIRED)
-set_target_properties(Vulkan::Vulkan PROPERTIES INTERFACE_COMPILE_DEFINITIONS VK_USE_PLATFORM_WIN32_KHR=1)
+
+# Platform-specific Vulkan settings
+if(APPLE)
+    # macOS uses MoltenVK with Metal surface
+    set_target_properties(Vulkan::Vulkan PROPERTIES INTERFACE_COMPILE_DEFINITIONS 
+        VK_USE_PLATFORM_METAL_EXT=1)
+elseif(WIN32)
+    # Windows uses Win32 surface
+    set_target_properties(Vulkan::Vulkan PROPERTIES INTERFACE_COMPILE_DEFINITIONS 
+        VK_USE_PLATFORM_WIN32_KHR=1)
+elseif(UNIX AND NOT APPLE)
+    # Linux uses X11 or Wayland surface
+    set_target_properties(Vulkan::Vulkan PROPERTIES INTERFACE_COMPILE_DEFINITIONS 
+        VK_USE_PLATFORM_XLIB_KHR=1)
+endif()
 
 #
 # Target: AGPBaseAPI
@@ -78,7 +92,10 @@ target_link_libraries(DemoCommon PUBLIC
   Vulkan::Vulkan
   glfw)
 target_compile_definitions(DemoCommon PUBLIC RENDER_HAS_VULKAN_BACKEND=1)
-target_compile_definitions(DemoCommon PUBLIC NOMINMAX)
+target_compile_definitions(DemoCommon PUBLIC RENDER_HAS_VULKAN_BACKEND=1)
+if(WIN32)
+    target_compile_definitions(DemoCommon PUBLIC NOMINMAX)
+endif()
 
 #
 # Target: LumeDemo.exe
