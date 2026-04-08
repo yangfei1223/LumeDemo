@@ -154,6 +154,76 @@ This project does not currently have automated tests. Manual testing is done by 
 - GLFW 3.4
 - Git with SSH authentication
 
+## Git Configuration
+
+### User Information
+```bash
+git config --global user.name "Fei Yang"
+git config --global user.email "yangfei92516@163.com"
+```
+
+### Remote Repositories
+- **origin**: https://github.com/jsnchng/LumeDemo.git (upstream)
+- **myrepo**: https://github.com/yangfei1223/LumeDemo.git (personal fork)
+
+### Submodule Repositories (All forked to personal account)
+| Submodule | Original | Personal Fork |
+|-----------|----------|---------------|
+| LumeBase | jsnchng/LumeBase | yangfei1223/LumeBase |
+| LumeEngine | jsnchng/LumeEngine | yangfei1223/LumeEngine |
+| LumeRender | jsnchng/LumeRender | yangfei1223/LumeRender |
+| Lume3D | jsnchng/Lume3D | yangfei1223/Lume3D |
+
+### Branch Strategy
+- **main**: Synced with upstream (origin/main)
+- **mac**: Personal development branch with custom changes
+
+### Common Git Operations
+
+#### Sync with upstream
+```bash
+git checkout main
+git pull origin main
+git checkout mac
+git merge main
+```
+
+#### Push to personal repo
+```bash
+git push myrepo mac
+```
+
+#### Update submodules
+```bash
+git submodule update --init --recursive
+git submodule sync
+```
+
+#### Push all submodule changes
+```bash
+git submodule foreach 'git push origin mac'
+```
+
+### Submodule Workflow
+When modifying submodules:
+
+```bash
+# 1. Enter submodule and switch to mac branch
+cd LumeBase
+git checkout mac
+
+# 2. Make changes, commit and push
+git add .
+git commit -m "Your changes"
+git push origin mac
+
+# 3. Return to main repo and update reference
+cd ..
+git add LumeBase
+git commit -m "Update LumeBase submodule"
+git push myrepo mac
+```
+
 ## Notes
 
 - This is a Windows-only project
