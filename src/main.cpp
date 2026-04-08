@@ -90,6 +90,39 @@ void RegisterAppPaths(CORE_NS::IEngine& engine)
     }
 }
 
+// GLFW input callbacks
+static void MouseMoveCallback(GLFWwindow* window, double x, double y)
+{
+    auto* app = static_cast<IApplication*>(glfwGetWindowUserPointer(window));
+    if (app) {
+        app->OnMouseMove(x, y);
+    }
+}
+
+static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+    auto* app = static_cast<IApplication*>(glfwGetWindowUserPointer(window));
+    if (app) {
+        app->OnMouseButton(button, action, mods);
+    }
+}
+
+static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    auto* app = static_cast<IApplication*>(glfwGetWindowUserPointer(window));
+    if (app) {
+        app->OnMouseScroll(xoffset, yoffset);
+    }
+}
+
+static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    auto* app = static_cast<IApplication*>(glfwGetWindowUserPointer(window));
+    if (app) {
+        app->OnKey(key, scancode, action, mods);
+    }
+}
+
 int main() {
     constexpr int width = 1600;
     constexpr int height = 900;
@@ -116,6 +149,14 @@ int main() {
     }
 
     std::unique_ptr<IApplication> app(createApplication());
+    
+    // Set up input callbacks
+    glfwSetWindowUserPointer(window, app.get());
+    glfwSetCursorPosCallback(window, MouseMoveCallback);
+    glfwSetMouseButtonCallback(window, MouseButtonCallback);
+    glfwSetScrollCallback(window, ScrollCallback);
+    glfwSetKeyCallback(window, KeyCallback);
+    
     RENDER_NS::IDevice* device = app->OnInit(platformCreateInfo);
 
     RENDER_NS::SwapchainCreateInfo swapchainCreateInfo;
