@@ -262,7 +262,7 @@ private:
                                                CameraComponent::PipelineFlagBits::HISTORY_BIT |
                                                CameraComponent::PipelineFlagBits::VELOCITY_OUTPUT_BIT |
                                                CameraComponent::PipelineFlagBits::DEPTH_OUTPUT_BIT;
-                cameraHandle->renderingPipeline = CameraComponent::RenderingPipeline::FORWARD;
+                cameraHandle->renderingPipeline = CameraComponent::RenderingPipeline::DEFERRED;
             }
             const auto& sceneUtil = graphicsContext_->GetSceneUtil();
             sceneUtil.UpdateCameraViewport(*ecs_, activeCamera_, { windowWidth_, windowHeight_ }, false, 60.f, 1.f);
