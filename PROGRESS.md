@@ -59,26 +59,71 @@
 ## Remaining Tasks (15%)
 
 ### 1. Actual Compute Shader Dispatch
-**Problem**: Compute shaders exist but are not actually dispatched
+**Problem**: `ExecuteTrainingIteration()` logs but doesn't dispatch compute shaders
 
-**Current State**:
-- `ExecuteTrainingIteration()` logs the training steps but doesn't dispatch compute shaders
-- `RenderNodeComputeGeneric` nodes in JSON are experimental
+**Solution Required** (Choose one):
 
-**Solution Needed**:
-- Option A: Modify render node graph to properly configure `RenderNodeComputeGeneric` nodes
-- Option B: Implement custom render node that dispatches all 3 compute shaders
-- Option C: Use `IRenderer` to manually dispatch compute shaders
+**Option A: Custom Render Node (Recommended)**
+Create a custom render node similar to `RenderPostProcessBloomNode`:
+1. Create `render_node_sr_training.h/cpp` in `LumeRender/src/postprocesses/`
+2. Implement `InitNode()`, `PreExecuteFrame()`, `ExecuteFrame()`
+3. In `ExecuteFrame()`:
+   ```cpp
+   void ExecuteFrame(IRenderCommandList& cmdList) override {
+       // 1. Downsample GT to LR
+       cmdList.BindPipeline(downsamplePso_);
+       binder_.BindImage(0, { gtTexture_ });
+       binder_.BindImage(1, { lrTexture_ });
+       cmdList.Dispatch(...);
+       
+       // 2. Loss + Backward
+       cmdList.BindPipeline(lossBackwardPso_);
+       ...
+       
+       // 3. Adam Optimizer
+       cmdList.BindPipeline(adamPso_);
+       ...
+   }
+   ```
+4. Register render node with plugin system
+5. Add to render node graph JSON
 
-### 2. Resource Binding
-**Problem**: Compute shaders need:
+**Option B: Dynamic Node Insertion**
+Use `IRenderNodeGraphManager::AddRenderNodeInsertion()` to inject compute nodes at runtime.
+
+**Option C: Separate Render Node Graph**
+Create `renderNodeGraph_sr_training.json` with `RenderNodeComputeGeneric` nodes, load it separately, and pass to `renderer.RenderFrame()` when training.
+
+### Key Code Pattern (from bloom)
+
+```cpp
+// Bind pipeline
+cmdList.BindPipeline(psoHandle);
+
+// Clear and bind resources
+binder.ClearBindings();
+binder.BindImage(0, { outputImage });
+binder.BindImage(1, { inputImage });
+binder.BindSampler(2, { samplerHandle });
+
+// Update and bind descriptor set
+cmdList.UpdateDescriptorSet(binder.GetDescriptorSetHandle(), 
+                            binder.GetDescriptorSetLayoutBindingResources());
+cmdList.BindDescriptorSet(0U, binder.GetDescriptorSetHandle());
+
+// Push constants
+cmdList.PushConstantData(pushConstant, arrayviewU8(pushConstantData));
+
+// Dispatch
+cmdList.Dispatch((width + 7) / 8, (height + 7) / 8, 1);
+```
+
+### 2. Resource Binding Needed
 - LR texture (input/output)
 - LR gradient (output)
 - LR momentum1, momentum2 (input/output)
 - GT texture (input)
 - Sampler
-
-**Solution**: Create proper descriptor sets and bind resources
 
 ### 3. Visual Verification
 - [ ] Split-screen display (GT vs optimized)
