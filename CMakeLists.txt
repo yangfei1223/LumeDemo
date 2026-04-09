@@ -68,12 +68,14 @@ endif()
 # Target: DemoCommon
 #
 add_library(DemoCommon
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/diff_texture_sr.cpp)
 target_include_directories(DemoCommon PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(DemoCommon PRIVATE
   AGPBase::AGPBaseAPI
   AGPEngine::AGPEngineAPI
-  AGPRender::AGPRenderAPI)
+  AGPRender::AGPRenderAPI
+  AGP3D::AGP3DAPI)
 target_link_libraries(DemoCommon PUBLIC
   Vulkan::Vulkan
   glfw)
@@ -96,11 +98,22 @@ target_link_libraries(LumeDemo PRIVATE
   AGPEngine::AGPEngineDLL
   AGPEngine::ComponentHelperSDK
   DemoCommon)
+target_link_libraries(LumeDemo PRIVATE
+  AGPBase::AGPBaseAPI
+  AGPEngine::AGPEngineAPI
+  AGPRender::AGPRenderAPI
+  AGP3D::AGP3DAPI
+  AGPEngine::AGPEngineDLL
+  AGPEngine::ComponentHelperSDK
+  DemoCommon)
 
 add_custom_target(CopyAssets ALL
   COMMAND ${CMAKE_COMMAND} -E copy_directory
           ${CMAKE_SOURCE_DIR}/assets/glTF
           ${CMAKE_BINARY_DIR}/$<CONFIG>/app/assets/glTF
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          ${CMAKE_SOURCE_DIR}/assets/app
+          ${CMAKE_BINARY_DIR}/$<CONFIG>/app/assets/app
   COMMAND ${CMAKE_COMMAND} -E copy_directory
           ${CMAKE_SOURCE_DIR}/LumeRender/assets/render
           ${CMAKE_BINARY_DIR}/$<CONFIG>/app/assets/render

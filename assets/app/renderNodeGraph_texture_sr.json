@@ -1,0 +1,155 @@
+{
+    "renderNodeGraphName": "TextureSuperResolution",
+    "nodes": [
+        {
+            "typeName": "RenderNodeClearColorImage",
+            "nodeName": "ClearGradient",
+            "queue": {
+                "type": "compute",
+                "index": 0
+            },
+            "resources": [
+                {
+                    "type": "image",
+                    "name": "lrGradient",
+                    "usage": "storage",
+                    "clearValue": {
+                        "color": [0.0, 0.0, 0.0, 0.0]
+                    }
+                }
+            ]
+        },
+        {
+            "typeName": "RenderNodeComputeGeneric",
+            "nodeName": "LossBackward",
+            "queue": {
+                "type": "compute",
+                "index": 0
+            },
+            "shader": "rendershaders://computeshader/sr_loss_backward.shader",
+            "threadGroupSize": [8, 8, 1],
+            "resources": [
+                {
+                    "type": "texture",
+                    "name": "gtRenderTarget",
+                    "binding": 0,
+                    "usage": "sampled"
+                },
+                {
+                    "type": "texture",
+                    "name": "optRenderTarget",
+                    "binding": 1,
+                    "usage": "sampled"
+                },
+                {
+                    "type": "texture",
+                    "name": "uvRenderTarget",
+                    "binding": 2,
+                    "usage": "sampled"
+                },
+                {
+                    "type": "sampler",
+                    "name": "linearSampler",
+                    "binding": 3
+                },
+                {
+                    "type": "image",
+                    "name": "lrGradient",
+                    "binding": 4,
+                    "usage": "storage"
+                }
+            ],
+            "dispatchResources": [
+                {
+                    "type": "pushConstant",
+                    "size": 20
+                }
+            ]
+        },
+        {
+            "typeName": "RenderNodeComputeGeneric",
+            "nodeName": "AdamOptimizer",
+            "queue": {
+                "type": "compute",
+                "index": 0
+            },
+            "shader": "rendershaders://computeshader/sr_adam_optimizer.shader",
+            "threadGroupSize": [8, 8, 1],
+            "resources": [
+                {
+                    "type": "image",
+                    "name": "lrTexture",
+                    "binding": 0,
+                    "usage": "storage"
+                },
+                {
+                    "type": "image",
+                    "name": "lrGradient",
+                    "binding": 1,
+                    "usage": "storage"
+                },
+                {
+                    "type": "image",
+                    "name": "lrMomentum1",
+                    "binding": 2,
+                    "usage": "storage"
+                },
+                {
+                    "type": "image",
+                    "name": "lrMomentum2",
+                    "binding": 3,
+                    "usage": "storage"
+                }
+            ],
+            "dispatchResources": [
+                {
+                    "type": "pushConstant",
+                    "size": 20
+                }
+            ]
+        },
+        {
+            "typeName": "RenderNodeFullscreenGeneric",
+            "nodeName": "SplitScreenDisplay",
+            "queue": {
+                "type": "graphics",
+                "index": 0
+            },
+            "shader": "rendershaders://shader/split_screen_display.shader",
+            "renderPass": {
+                "attachments": [
+                    {
+                        "loadOp": "clear",
+                        "storeOp": "store",
+                        "name": "CORE_DEFAULT_BACKBUFFER",
+                        "clearValue": {
+                            "color": [0.0, 0.0, 0.0, 1.0]
+                        }
+                    }
+                ],
+                "subpass": {
+                    "colorAttachmentIndices": 0
+                }
+            },
+            "resources": [
+                {
+                    "type": "texture",
+                    "name": "gtRenderTarget",
+                    "binding": 0,
+                    "usage": "sampled"
+                },
+                {
+                    "type": "texture",
+                    "name": "optRenderTarget",
+                    "binding": 1,
+                    "usage": "sampled"
+                },
+                {
+                    "type": "sampler",
+                    "name": "linearSampler",
+                    "binding": 2
+                }
+            ]
+        }
+    ]
+}
