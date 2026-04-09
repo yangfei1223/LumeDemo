@@ -111,17 +111,36 @@ a0ccc2e Add experimental training pipeline render node graph
 ### Actual Compute Shader Dispatch
 **Problem**: `ExecuteTrainingIteration()` logs but doesn't dispatch compute shaders
 
-**Solutions**:
-1. Configure `RenderNodeComputeGeneric` nodes properly in JSON
-2. Create custom render node
-3. Manual dispatch via `IRenderer`
+**Solution Required** (Choose one):
 
-### Resource Binding Needed
-- LR texture (input/output)
-- LR gradient (output)
-- LR momentum1, momentum2 (input/output)
-- GT texture (input)
-- Sampler
+**Option A: Custom Render Node (Recommended)**
+Create a custom render node similar to `RenderPostProcessBloomNode`:
+```cpp
+// Key pattern from bloom:
+void ExecuteFrame(IRenderCommandList& cmdList) override {
+    cmdList.BindPipeline(psoHandle);
+    binder_.BindImage(0, { outputImage });
+    binder_.BindImage(1, { inputImage });
+    cmdList.UpdateDescriptorSet(binder.GetDescriptorSetHandle(), 
+                                binder.GetDescriptorSetLayoutBindingResources());
+    cmdList.BindDescriptorSet(0U, binder.GetDescriptorSetHandle());
+    cmdList.PushConstantData(pushConstant, arrayviewU8(pushConstantData));
+    cmdList.Dispatch((width + 7) / 8, (height + 7) / 8, 1);
+}
+```
+
+**Option B: Dynamic Node Insertion**
+Use `IRenderNodeGraphManager::AddRenderNodeInsertion()` to inject compute nodes.
+
+**Option C: Separate Render Node Graph**
+Create separate RNG with `RenderNodeComputeGeneric` nodes, load and pass to `RenderFrame()`.
+
+### Resources to Bind
+- LR texture (input/output) - `texturePair_.lrTexture`
+- LR gradient (output) - `texturePair_.lrGradient`
+- LR momentum1/2 (input/output) - `texturePair_.lrMomentum1/2`
+- GT texture (input) - `texturePair_.gtTexture`
+- Sampler - `sampler_`
 
 ---
 
