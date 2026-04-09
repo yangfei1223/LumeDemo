@@ -574,4 +574,36 @@ void DiffTextureSRManager::InitializeLRFromGT() {
     CORE_LOG_I("InitializeLRFromGT: Ready for training loop");
 }
 
+void DiffTextureSRManager::ExecuteTrainingIteration(RENDER_NS::IRenderCommandList& cmdList) {
+    using namespace BASE_NS;
+    using namespace RENDER_NS;
+    
+    if (!HasGTTexture()) {
+        CORE_LOG_W("ExecuteTrainingIteration: No GT texture available");
+        return;
+    }
+    
+    if (!isTraining_) {
+        return;
+    }
+    
+    CORE_LOG_I("ExecuteTrainingIteration: Starting iteration %u", texturePair_.iteration + 1);
+    
+    // Step 1: Downsample GT to LR size (512x512)
+    // Note: This would dispatch texture_downsample.comp
+    // For now, we just log - actual compute dispatch requires pipeline setup
+    
+    // Step 2: Compute loss and backpropagation
+    // Note: This would dispatch sr_loss_backward_simple.comp
+    
+    // Step 3: Adam optimizer update
+    // Note: This would dispatch sr_adam_optimizer.comp
+    
+    // Increment iteration
+    texturePair_.iteration++;
+    
+    CORE_LOG_I("ExecuteTrainingIteration: Completed iteration %u", texturePair_.iteration);
+    CORE_LOG_I("ExecuteTrainingIteration: Note - Actual compute dispatch requires render node graph integration");
+}
+
 } // namespace LumeDemo

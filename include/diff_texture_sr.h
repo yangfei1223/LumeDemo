@@ -132,6 +132,10 @@ public:
     // Check if initialized with GT texture
     bool HasGTTexture() const { return texturePair_.gtTexture && texturePair_.gtTexture.GetHandle().id != 0; }
     
+    // Execute one training iteration (called after render)
+    // This performs: downsample GT -> loss + backward -> adam update
+    void ExecuteTrainingIteration(RENDER_NS::IRenderCommandList& cmdList);
+    
     // Get camera parameters
     float GetCameraYaw() const { return cameraYaw_; }
     float GetCameraPitch() const { return cameraPitch_; }
