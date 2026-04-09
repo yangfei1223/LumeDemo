@@ -67,6 +67,7 @@ public:
     DiffTextureSRManager srManager_;
     bool isTraining_ = false;
     uint32_t frameCount_ = 0;
+    bool gtTextureInitialized_ = false;  // Flag to track GT texture initialization
 
     IDevice* OnInit(PlatformCreateInfo platformCreateInfo) override
     {
@@ -197,6 +198,22 @@ public:
             const auto ecsRngs = graphicsContext_->GetRenderNodeGraphs(*ecs);
             vector<RenderHandleReference> rngs(ecsRngs.begin(), ecsRngs.end());
             renderer.RenderFrame(rngs);
+            
+            // Initialize GT texture from base_color output after first frame
+            if (!gtTextureInitialized_ && renderNodeGraph_) {
+                IRenderNodeGraphManager& graphManager = renderContext_->GetRenderNodeGraphManager();
+                auto resourceInfo = graphManager.GetRenderNodeGraphResources(renderNodeGraph_);
+                
+                // base_color is at index 3 in output resources (output, color, depth, base_color)
+                if (resourceInfo.outputResources.size() > 3) {
+                    auto baseColorHandle = resourceInfo.outputResources[3];
+                    if (baseColorHandle && baseColorHandle.GetHandle().id != 0) {
+                        srManager_.SetGTTextureFromRenderOutput(baseColorHandle);
+                        gtTextureInitialized_ = true;
+                        CORE_LOG_I("OnFrame: GT texture initialized from base_color output");
+                    }
+                }
+            }
         }
     }
 

@@ -16,6 +16,10 @@
         {
             "name": "depth",
             "nodeName": "CORE3D_RN_CAM_CTRL"
+        },
+        {
+            "name": "base_color",
+            "nodeName": "CORE3D_RN_CAM_CTRL"
         }
     ],
     "nodes": [
@@ -60,8 +64,8 @@
                 {
                     "name": "base_color",
                     "format": "r8g8b8a8_srgb",
-                    "usageFlags": "color_attachment | input_attachment | transient_attachment",
-                    "memoryPropertyFlags": "device_local | lazily_allocated",
+                    "usageFlags": "color_attachment | input_attachment | sampled | storage",
+                    "memoryPropertyFlags": "device_local",
                     "engineCreationFlags": "dynamic_barriers"
                 },
                 {

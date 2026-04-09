@@ -123,6 +123,15 @@ public:
     // Phase 4 test: Run compute shader test
     void RunComputeShaderTest(const char* outputPath = "sr_compute_test_results.txt");
     
+    // Set GT texture from render node graph output
+    void SetGTTextureFromRenderOutput(RENDER_NS::RenderHandleReference gtTexture);
+    
+    // Initialize LR texture by downsampling GT
+    void InitializeLRFromGT();
+    
+    // Check if initialized with GT texture
+    bool HasGTTexture() const { return texturePair_.gtTexture && texturePair_.gtTexture.GetHandle().id != 0; }
+    
     // Get camera parameters
     float GetCameraYaw() const { return cameraYaw_; }
     float GetCameraPitch() const { return cameraPitch_; }

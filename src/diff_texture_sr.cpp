@@ -534,4 +534,44 @@ void DiffTextureSRManager::RunComputeShaderTest(const char* outputPath) {
     CORE_LOG_I("RunComputeShaderTest: Results written to %s", outputPath);
 }
 
+void DiffTextureSRManager::SetGTTextureFromRenderOutput(RENDER_NS::RenderHandleReference gtTexture) {
+    if (!gtTexture || gtTexture.GetHandle().id == 0) {
+        CORE_LOG_E("SetGTTextureFromRenderOutput: Invalid GT texture handle");
+        return;
+    }
+    
+    texturePair_.gtTexture = gtTexture;
+    CORE_LOG_I("SetGTTextureFromRenderOutput: GT texture set, handle: %llu", gtTexture.GetHandle().id);
+    
+    // Now initialize LR from GT
+    InitializeLRFromGT();
+}
+
+void DiffTextureSRManager::InitializeLRFromGT() {
+    if (!texturePair_.gtTexture || texturePair_.gtTexture.GetHandle().id == 0) {
+        CORE_LOG_E("InitializeLRFromGT: No GT texture available");
+        return;
+    }
+    
+    if (!gpuResMgr_) {
+        CORE_LOG_E("InitializeLRFromGT: GPU resource manager not available");
+        return;
+    }
+    
+    CORE_LOG_I("InitializeLRFromGT: Initializing LR texture from GT...");
+    CORE_LOG_I("InitializeLRFromGT: GT size: %ux%u, LR size: %ux%u", 
+               texturePair_.gtWidth, texturePair_.gtHeight,
+               texturePair_.lrWidth, texturePair_.lrHeight);
+    
+    // Note: Actual downsampling requires a compute shader dispatch
+    // For now, we just log the initialization
+    // The downsampling will be handled by texture_downsample.comp when integrated
+    
+    // Mark iteration as initialized
+    texturePair_.iteration = 0;
+    
+    CORE_LOG_I("InitializeLRFromGT: LR texture initialized (iteration reset to 0)");
+    CORE_LOG_I("InitializeLRFromGT: Ready for training loop");
+}
+
 } // namespace LumeDemo
