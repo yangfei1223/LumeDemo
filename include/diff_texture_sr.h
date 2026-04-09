@@ -10,6 +10,7 @@
 #include <render/device/intf_gpu_resource_manager.h>
 #include <render/intf_render_context.h>
 #include <core/ecs/intf_ecs.h>
+#include <3d/namespace.h>
 
 // Forward declarations
 namespace RENDER_NS {
@@ -17,62 +18,57 @@ namespace RENDER_NS {
     class IShaderManager;
 }
 
-namespace CORE3D_NS {
+namespace Core3D {
     class IGraphicsContext;
 }
 
 namespace LumeDemo {
 
-using namespace BASE_NS;
-using namespace CORE_NS;
-using namespace RENDER_NS;
-using namespace CORE3D_NS;
-
 // Texture pair: High-res Ground Truth + Low-res optimization target
 struct TexturePair {
     // Ground Truth (high-res, read-only)
-    RenderHandleReference gtTexture;
+    RENDER_NS::RenderHandleReference gtTexture;
     uint32_t gtWidth = 1024;
     uint32_t gtHeight = 1024;
     
     // Optimization target (low-res, differentiable)
-    RenderHandleReference lrTexture;      // Current value (RGBA8)
-    RenderHandleReference lrGradient;     // Gradient (RGBA32F)
-    RenderHandleReference lrMomentum1;    // Adam 1st moment (RGBA32F)
-    RenderHandleReference lrMomentum2;    // Adam 2nd moment (RGBA32F)
+    RENDER_NS::RenderHandleReference lrTexture;      // Current value (RGBA8)
+    RENDER_NS::RenderHandleReference lrGradient;     // Gradient (RGBA32F)
+    RENDER_NS::RenderHandleReference lrMomentum1;    // Adam 1st moment (RGBA32F)
+    RENDER_NS::RenderHandleReference lrMomentum2;    // Adam 2nd moment (RGBA32F)
     uint32_t lrWidth = 512;
     uint32_t lrHeight = 512;
     
     // Iteration counter
     uint32_t iteration = 0;
     
-    void Initialize(IGpuResourceManager& gpuResMgr);
-    void DownsampleFromGT(IRenderCommandList& cmdList, 
-                          IShaderManager& shaderMgr,
-                          RenderHandleReference sampler);
+    void Initialize(RENDER_NS::IGpuResourceManager& gpuResMgr);
+    void DownsampleFromGT(RENDER_NS::IRenderCommandList& cmdList, 
+                          RENDER_NS::IShaderManager& shaderMgr,
+                          RENDER_NS::RenderHandleReference sampler);
 };
 
 // Differentiable Texture Super-Resolution Manager
 class DiffTextureSRManager {
 public:
-    void Initialize(IRenderContext& renderContext,
-                    IEcs& ecs,
-                    IGraphicsContext& graphicsContext);
+    void Initialize(RENDER_NS::IRenderContext& renderContext,
+                    CORE_NS::IEcs& ecs,
+                    Core3D::IGraphicsContext& graphicsContext);
     
     // Set texture pair
     void SetTexturePair(const TexturePair& pair) { texturePair_ = pair; }
     TexturePair& GetTexturePair() { return texturePair_; }
     
     // Set reference render targets
-    void SetReferenceRenderTarget(RenderHandleReference gtTarget,
-                                   RenderHandleReference optTarget);
+    void SetReferenceRenderTarget(RENDER_NS::RenderHandleReference gtTarget,
+                                   RENDER_NS::RenderHandleReference optTarget);
     
     // Random camera generation
     void RandomizeCamera(float distanceMin = 2.0f, 
                           float distanceMax = 5.0f);
     
     // Update camera transform
-    void UpdateCameraTransform(Entity cameraEntity);
+    void UpdateCameraTransform(CORE_NS::Entity cameraEntity);
     
     // Execute optimization step
     void OptimizeStep();
@@ -99,34 +95,49 @@ public:
                         uint32_t lrW, uint32_t lrH);
     
     // Get render targets
-    RenderHandleReference GetGTRenderTarget() const { return gtRenderTarget_; }
-    RenderHandleReference GetOptimizedRenderTarget() const { return optRenderTarget_; }
-    RenderHandleReference GetUVRenderTarget() const { return uvRenderTarget_; }
+    RENDER_NS::RenderHandleReference GetGTRenderTarget() const { return gtRenderTarget_; }
+    RENDER_NS::RenderHandleReference GetOptimizedRenderTarget() const { return optRenderTarget_; }
+    RENDER_NS::RenderHandleReference GetUVRenderTarget() const { return uvRenderTarget_; }
+    
+    // Get low-res texture resources
+    RENDER_NS::RenderHandleReference GetLRTexture() const { return texturePair_.lrTexture; }
+    RENDER_NS::RenderHandleReference GetLRGradient() const { return texturePair_.lrGradient; }
+    RENDER_NS::RenderHandleReference GetLRMomentum1() const { return texturePair_.lrMomentum1; }
+    RENDER_NS::RenderHandleReference GetLRMomentum2() const { return texturePair_.lrMomentum2; }
+    RENDER_NS::RenderHandleReference GetSampler() const { return sampler_; }
+    
+    // Set GT texture from external source
+    void SetGTTexture(RENDER_NS::RenderHandleReference gtTexture) {
+        texturePair_.gtTexture = gtTexture;
+    }
+    
+    // Get iteration count
+    uint32_t GetIteration() const { return texturePair_.iteration; }
     
     // Get camera parameters
     float GetCameraYaw() const { return cameraYaw_; }
     float GetCameraPitch() const { return cameraPitch_; }
     float GetCameraDistance() const { return cameraDistance_; }
-    Math::Vec3 GetCameraTarget() const { return cameraTarget_; }
+    BASE_NS::Math::Vec3 GetCameraTarget() const { return cameraTarget_; }
     
     // Compute shader dispatch (for render node calls)
-    void DispatchLossBackward(IRenderCommandList& cmdList);
-    void DispatchAdamOptimizer(IRenderCommandList& cmdList);
+    void DispatchLossBackward(RENDER_NS::IRenderCommandList& cmdList);
+    void DispatchAdamOptimizer(RENDER_NS::IRenderCommandList& cmdList);
     
 private:
     void CreateRenderTargets();
     
-    IRenderContext* renderContext_ = nullptr;
-    IGpuResourceManager* gpuResMgr_ = nullptr;
-    IShaderManager* shaderMgr_ = nullptr;
-    IEcs* ecs_ = nullptr;
-    IGraphicsContext* graphicsContext_ = nullptr;
+    RENDER_NS::IRenderContext* renderContext_ = nullptr;
+    RENDER_NS::IGpuResourceManager* gpuResMgr_ = nullptr;
+    RENDER_NS::IShaderManager* shaderMgr_ = nullptr;
+    CORE_NS::IEcs* ecs_ = nullptr;
+    Core3D::IGraphicsContext* graphicsContext_ = nullptr;
     
     TexturePair texturePair_;
-    RenderHandleReference gtRenderTarget_;   // Ground Truth render result
-    RenderHandleReference optRenderTarget_;  // Optimized render result
-    RenderHandleReference uvRenderTarget_;   // UV output
-    RenderHandleReference sampler_;          // Shared sampler
+    RENDER_NS::RenderHandleReference gtRenderTarget_;
+    RENDER_NS::RenderHandleReference optRenderTarget_;
+    RENDER_NS::RenderHandleReference uvRenderTarget_;
+    RENDER_NS::RenderHandleReference sampler_;
     
     AdamParams adamParams_;
     float currentLoss_ = 0.0f;
@@ -136,7 +147,7 @@ private:
     float cameraYaw_ = 0.0f;
     float cameraPitch_ = 0.0f;
     float cameraDistance_ = 3.0f;
-    Math::Vec3 cameraTarget_ = Math::Vec3(0.0f, 0.0f, 0.0f);
+    BASE_NS::Math::Vec3 cameraTarget_ = BASE_NS::Math::Vec3(0.0f, 0.0f, 0.0f);
 };
 
 } // namespace LumeDemo

@@ -49,17 +49,24 @@
 #include "application_config.h"
 #include "application_factory.h"
 #include "application_interface.h"
+#include "diff_texture_sr.h"
 
 using namespace BASE_NS;
 using namespace CORE_NS;
 using namespace RENDER_NS;
 using namespace CORE3D_NS;
+using namespace LumeDemo;
 
 class MinimalDemo : public IApplication {
 public:
     MinimalDemo() {}
     
     ~MinimalDemo() override = default;
+
+    // Texture Super-Resolution Manager
+    DiffTextureSRManager srManager_;
+    bool isTraining_ = false;
+    uint32_t frameCount_ = 0;
 
     IDevice* OnInit(PlatformCreateInfo platformCreateInfo) override
     {
@@ -95,6 +102,11 @@ public:
         GetPluginRegister().LoadPlugins(uid3D);
         graphicsContext_ = CreateInstance<IGraphicsContext>(*renderContext_->GetInterface<IClassFactory>(), UID_GRAPHICS_CONTEXT);
         graphicsContext_->Init();
+
+        // Initialize Texture Super-Resolution Manager
+        srManager_.Initialize(*renderContext_, *ecs_, *graphicsContext_);
+        srManager_.SetTraining(false);  // Training off by default
+        CORE_LOG_I("DiffTextureSRManager initialized");
 
         return device;
     }
@@ -160,6 +172,17 @@ public:
 
     void OnFrame() override
     {
+        // Training loop
+        if (srManager_.IsTraining()) {
+            srManager_.OptimizeStep();
+            
+            // Update camera every 10 frames
+            frameCount_++;
+            if (frameCount_ % 10 == 0) {
+                srManager_.UpdateCameraTransform(cameraEntity_);
+            }
+        }
+        
         UpdateCamera();
         auto* ecs = ecs_.get();
         const bool needRender = engine_->TickFrame(array_view(&ecs, 1));
@@ -231,6 +254,21 @@ public:
             cameraPitch_ = 0.0f;
             cameraTarget_ = Math::Vec3(0.0f, 0.0f, 0.0f);
             UpdateCameraTransform();
+        }
+        
+        // Training control: T key = 84 - Toggle training
+        if (key == 84 && action == 1) { // GLFW_KEY_T
+            isTraining_ = !isTraining_;
+            srManager_.SetTraining(isTraining_);
+            CORE_LOG_I("Training: %s (iteration %d)", isTraining_ ? "ON" : "OFF", srManager_.GetIteration());
+        }
+        
+        // S key = 83 - Single step training
+        if (key == 83 && action == 1) { // GLFW_KEY_S
+            srManager_.SetTraining(true);
+            srManager_.OptimizeStep();
+            srManager_.SetTraining(false);
+            CORE_LOG_I("Single step training executed (iteration %d)", srManager_.GetIteration());
         }
     }
 

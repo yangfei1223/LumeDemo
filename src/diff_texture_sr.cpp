@@ -42,12 +42,15 @@ namespace {
     };
 }
 
-void TexturePair::Initialize(IGpuResourceManager& gpuResMgr) {
+void TexturePair::Initialize(RENDER_NS::IGpuResourceManager& gpuResMgr) {
+    using namespace RENDER_NS;
+    using namespace BASE_NS;
+    
     // Create low-resolution texture resources
     {
         GpuImageDesc desc;
         desc.imageType = CORE_IMAGE_TYPE_2D;
-        desc.format = BASE_NS::Format::BASE_FORMAT_R8G8B8A8_UNORM;
+        desc.format = Format::BASE_FORMAT_R8G8B8A8_UNORM;
         desc.width = lrWidth;
         desc.height = lrHeight;
         desc.depth = 1;
@@ -64,7 +67,7 @@ void TexturePair::Initialize(IGpuResourceManager& gpuResMgr) {
     {
         GpuImageDesc desc;
         desc.imageType = CORE_IMAGE_TYPE_2D;
-        desc.format = BASE_NS::Format::BASE_FORMAT_R32G32B32A32_SFLOAT;
+        desc.format = Format::BASE_FORMAT_R32G32B32A32_SFLOAT;
         desc.width = lrWidth;
         desc.height = lrHeight;
         desc.usageFlags = CORE_IMAGE_USAGE_STORAGE_BIT;
@@ -75,7 +78,7 @@ void TexturePair::Initialize(IGpuResourceManager& gpuResMgr) {
     {
         GpuImageDesc desc;
         desc.imageType = CORE_IMAGE_TYPE_2D;
-        desc.format = BASE_NS::Format::BASE_FORMAT_R32G32B32A32_SFLOAT;
+        desc.format = Format::BASE_FORMAT_R32G32B32A32_SFLOAT;
         desc.width = lrWidth;
         desc.height = lrHeight;
         desc.usageFlags = CORE_IMAGE_USAGE_STORAGE_BIT;
@@ -84,16 +87,19 @@ void TexturePair::Initialize(IGpuResourceManager& gpuResMgr) {
     }
 }
 
-void TexturePair::DownsampleFromGT(IRenderCommandList& cmdList,
-                                   IShaderManager& shaderMgr,
-                                   RenderHandleReference sampler) {
+void TexturePair::DownsampleFromGT(RENDER_NS::IRenderCommandList& cmdList,
+                                   RENDER_NS::IShaderManager& shaderMgr,
+                                   RENDER_NS::RenderHandleReference sampler) {
     // Note: Downsampling is performed via RenderNodeComputeGeneric
     // The render node graph handles pipeline creation, binding, and dispatch
 }
 
-void DiffTextureSRManager::Initialize(IRenderContext& renderContext,
-                                      IEcs& ecs,
-                                      IGraphicsContext& graphicsContext) {
+void DiffTextureSRManager::Initialize(RENDER_NS::IRenderContext& renderContext,
+                                      CORE_NS::IEcs& ecs,
+                                      Core3D::IGraphicsContext& graphicsContext) {
+    using namespace RENDER_NS;
+    using namespace BASE_NS;
+    
     renderContext_ = &renderContext;
     gpuResMgr_ = &renderContext.GetDevice().GetGpuResourceManager();
     shaderMgr_ = &renderContext.GetDevice().GetShaderManager();
@@ -118,11 +124,14 @@ void DiffTextureSRManager::Initialize(IRenderContext& renderContext,
 }
 
 void DiffTextureSRManager::CreateRenderTargets() {
+    using namespace RENDER_NS;
+    using namespace BASE_NS;
+    
     // GT render target (full resolution)
     {
         GpuImageDesc desc;
         desc.imageType = CORE_IMAGE_TYPE_2D;
-        desc.format = BASE_NS::Format::BASE_FORMAT_R8G8B8A8_UNORM;
+        desc.format = Format::BASE_FORMAT_R8G8B8A8_UNORM;
         desc.width = texturePair_.gtWidth;
         desc.height = texturePair_.gtHeight;
         desc.usageFlags = CORE_IMAGE_USAGE_SAMPLED_BIT |
@@ -135,7 +144,7 @@ void DiffTextureSRManager::CreateRenderTargets() {
     {
         GpuImageDesc desc;
         desc.imageType = CORE_IMAGE_TYPE_2D;
-        desc.format = BASE_NS::Format::BASE_FORMAT_R8G8B8A8_UNORM;
+        desc.format = Format::BASE_FORMAT_R8G8B8A8_UNORM;
         desc.width = texturePair_.gtWidth;
         desc.height = texturePair_.gtHeight;
         desc.usageFlags = CORE_IMAGE_USAGE_SAMPLED_BIT |
@@ -148,7 +157,7 @@ void DiffTextureSRManager::CreateRenderTargets() {
     {
         GpuImageDesc desc;
         desc.imageType = CORE_IMAGE_TYPE_2D;
-        desc.format = BASE_NS::Format::BASE_FORMAT_R32G32B32A32_SFLOAT;
+        desc.format = Format::BASE_FORMAT_R32G32B32A32_SFLOAT;
         desc.width = texturePair_.gtWidth;
         desc.height = texturePair_.gtHeight;
         desc.usageFlags = CORE_IMAGE_USAGE_SAMPLED_BIT |
@@ -159,11 +168,13 @@ void DiffTextureSRManager::CreateRenderTargets() {
 }
 
 void DiffTextureSRManager::RandomizeCamera(float distanceMin, float distanceMax) {
+    using namespace BASE_NS;
+    
     static std::mt19937 rng(static_cast<unsigned>(
         std::chrono::system_clock::now().time_since_epoch().count()));
     
-    std::uniform_real_distribution<float> yawDist(0.0f, 2.0f * BASE_NS::Math::PI);
-    std::uniform_real_distribution<float> pitchDist(-BASE_NS::Math::PI / 3.0f, BASE_NS::Math::PI / 3.0f);
+    std::uniform_real_distribution<float> yawDist(0.0f, 2.0f * Math::PI);
+    std::uniform_real_distribution<float> pitchDist(-Math::PI / 3.0f, Math::PI / 3.0f);
     std::uniform_real_distribution<float> distDist(distanceMin, distanceMax);
     
     cameraYaw_ = yawDist(rng);
@@ -171,52 +182,55 @@ void DiffTextureSRManager::RandomizeCamera(float distanceMin, float distanceMax)
     cameraDistance_ = distDist(rng);
 }
 
-void DiffTextureSRManager::UpdateCameraTransform(Entity cameraEntity) {
+void DiffTextureSRManager::UpdateCameraTransform(CORE_NS::Entity cameraEntity) {
+    using namespace BASE_NS;
+    using namespace CORE_NS;
+    using namespace CORE3D_NS;
+    
     if (!ecs_) return;
     
-    auto* nodeSystem = GetSystem<CORE3D_NS::INodeSystem>(*ecs_);
-    auto* transformMgr = GetManager<CORE3D_NS::ITransformComponentManager>(*ecs_);
+    auto* transformMgr = GetManager<ITransformComponentManager>(*ecs_);
     
     if (!transformMgr || cameraEntity == Entity {}) return;
     
     // Calculate camera position from spherical coordinates
-    float x = cameraDistance_ * BASE_NS::Math::cos(cameraPitch_) * BASE_NS::Math::sin(cameraYaw_);
-    float y = cameraDistance_ * BASE_NS::Math::sin(cameraPitch_);
-    float z = cameraDistance_ * BASE_NS::Math::cos(cameraPitch_) * BASE_NS::Math::cos(cameraYaw_);
+    float x = cameraDistance_ * Math::cos(cameraPitch_) * Math::sin(cameraYaw_);
+    float y = cameraDistance_ * Math::sin(cameraPitch_);
+    float z = cameraDistance_ * Math::cos(cameraPitch_) * Math::cos(cameraYaw_);
     
-    BASE_NS::Math::Vec3 cameraPos = cameraTarget_ + BASE_NS::Math::Vec3(x, y, z);
+    Math::Vec3 cameraPos = cameraTarget_ + Math::Vec3(x, y, z);
     
     auto handle = transformMgr->Write(cameraEntity);
     if (handle) {
         handle->position = cameraPos;
         
         // Calculate rotation to look at target
-        BASE_NS::Math::Vec3 forward = BASE_NS::Math::Normalize(cameraTarget_ - cameraPos);
-        BASE_NS::Math::Vec3 right = BASE_NS::Math::Normalize(BASE_NS::Math::Cross(forward, BASE_NS::Math::Vec3(0.0f, 1.0f, 0.0f)));
-        BASE_NS::Math::Vec3 up = BASE_NS::Math::Cross(right, forward);
+        Math::Vec3 forward = Math::Normalize(cameraTarget_ - cameraPos);
+        Math::Vec3 right = Math::Normalize(Math::Cross(forward, Math::Vec3(0.0f, 1.0f, 0.0f)));
+        Math::Vec3 up = Math::Cross(right, forward);
         
         // Convert to quaternion
         float trace = right.x + up.y + forward.z;
         if (trace > 0.0f) {
-            float s = BASE_NS::Math::sqrt(trace + 1.0f) * 2.0f;
+            float s = Math::sqrt(trace + 1.0f) * 2.0f;
             handle->rotation.w = 0.25f * s;
             handle->rotation.x = (up.z - forward.y) / s;
             handle->rotation.y = (forward.x - right.z) / s;
             handle->rotation.z = (right.y - up.x) / s;
         } else if (right.x > up.y && right.x > forward.z) {
-            float s = BASE_NS::Math::sqrt(1.0f + right.x - up.y - forward.z) * 2.0f;
+            float s = Math::sqrt(1.0f + right.x - up.y - forward.z) * 2.0f;
             handle->rotation.w = (up.z - forward.y) / s;
             handle->rotation.x = 0.25f * s;
             handle->rotation.y = (up.x + right.y) / s;
             handle->rotation.z = (forward.x + right.z) / s;
         } else if (up.y > forward.z) {
-            float s = BASE_NS::Math::sqrt(1.0f + up.y - right.x - forward.z) * 2.0f;
+            float s = Math::sqrt(1.0f + up.y - right.x - forward.z) * 2.0f;
             handle->rotation.w = (forward.x - right.z) / s;
             handle->rotation.x = (up.x + right.y) / s;
             handle->rotation.y = 0.25f * s;
             handle->rotation.z = (forward.y + up.z) / s;
         } else {
-            float s = BASE_NS::Math::sqrt(1.0f + forward.z - right.x - up.y) * 2.0f;
+            float s = Math::sqrt(1.0f + forward.z - right.x - up.y) * 2.0f;
             handle->rotation.w = (right.y - up.x) / s;
             handle->rotation.x = (forward.x + right.z) / s;
             handle->rotation.y = (forward.y + up.z) / s;
@@ -231,28 +245,21 @@ void DiffTextureSRManager::OptimizeStep() {
     // Step 1: Randomize camera for this training iteration
     RandomizeCamera();
     
-    // Step 2: Update camera transform in ECS
-    // Note: This requires camera entity to be passed or stored
-    // The actual rendering will be done by the render graph
-    
-    // Step 3: Increment iteration counter
+    // Step 2: Increment iteration counter
     texturePair_.iteration++;
     
     // Note: The actual compute shader dispatches (Loss + Adam) are handled
     // by the RenderNodeComputeGeneric nodes in the render node graph.
-    // The render node graph is loaded and executed by the renderer.
     
     CORE_LOG_I("OptimizeStep: iteration %d", texturePair_.iteration);
 }
 
-void DiffTextureSRManager::DispatchLossBackward(IRenderCommandList& cmdList) {
+void DiffTextureSRManager::DispatchLossBackward(RENDER_NS::IRenderCommandList& cmdList) {
     // Note: This is handled automatically by RenderNodeComputeGeneric
-    // The render node graph configures and executes this dispatch
 }
 
-void DiffTextureSRManager::DispatchAdamOptimizer(IRenderCommandList& cmdList) {
+void DiffTextureSRManager::DispatchAdamOptimizer(RENDER_NS::IRenderCommandList& cmdList) {
     // Note: This is handled automatically by RenderNodeComputeGeneric
-    // The render node graph configures and executes this dispatch
 }
 
 void DiffTextureSRManager::SetResolution(uint32_t gtW, uint32_t gtH, 
