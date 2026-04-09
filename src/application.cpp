@@ -111,6 +111,9 @@ public:
         // Run self-test and write results to file
         srManager_.RunSelfTest("sr_test_results.txt");
 
+        // Run Phase 4 compute shader test
+        srManager_.RunComputeShaderTest("sr_compute_test_results.txt");
+
         return device;
     }
 

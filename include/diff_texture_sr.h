@@ -117,6 +117,12 @@ public:
     // Run self-test and write results to file
     void RunSelfTest(const char* outputPath = "sr_test_results.txt");
     
+    // Phase 4 test: Create test texture (checkerboard pattern)
+    void CreateTestTexture();
+    
+    // Phase 4 test: Run compute shader test
+    void RunComputeShaderTest(const char* outputPath = "sr_compute_test_results.txt");
+    
     // Get camera parameters
     float GetCameraYaw() const { return cameraYaw_; }
     float GetCameraPitch() const { return cameraPitch_; }
