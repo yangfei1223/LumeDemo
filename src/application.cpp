@@ -108,6 +108,9 @@ public:
         srManager_.SetTraining(false);  // Training off by default
         CORE_LOG_I("DiffTextureSRManager initialized");
 
+        // Run self-test and write results to file
+        srManager_.RunSelfTest("sr_test_results.txt");
+
         return device;
     }
 

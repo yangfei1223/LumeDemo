@@ -114,6 +114,9 @@ public:
     // Get iteration count
     uint32_t GetIteration() const { return texturePair_.iteration; }
     
+    // Run self-test and write results to file
+    void RunSelfTest(const char* outputPath = "sr_test_results.txt");
+    
     // Get camera parameters
     float GetCameraYaw() const { return cameraYaw_; }
     float GetCameraPitch() const { return cameraPitch_; }
