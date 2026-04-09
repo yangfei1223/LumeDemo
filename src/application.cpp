@@ -123,7 +123,7 @@ public:
         ecs_->Initialize();
         transformManager_ = GetManager<ITransformComponentManager>(*ecs_);
         cameraManager_ = GetManager<ICameraComponentManager>(*ecs_);
-        renderNodeGraph_ = CreateRenderNodeGraph("assets://app/renderNodeGraph_texture_sr.json");
+        renderNodeGraph_ = CreateRenderNodeGraph("assets://app/renderNodeGraph.json");
         {
             auto* nodeSystem = GetSystem<INodeSystem>(*ecs_);
             auto rootNode = nodeSystem->CreateNode();

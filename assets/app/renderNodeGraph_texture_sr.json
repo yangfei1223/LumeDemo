@@ -1,4 +1,8 @@
 {
+    "compatibility_info": {
+        "version": "22.00",
+        "type": "rendernodegraph"
+    },
     "renderNodeGraphName": "TextureSuperResolution",
     "nodes": [
         {
@@ -8,16 +12,18 @@
                 "type": "compute",
                 "index": 0
             },
-            "resources": [
+            "gpuImageDescs": [
                 {
-                    "type": "image",
                     "name": "lrGradient",
-                    "usage": "storage",
-                    "clearValue": {
-                        "color": [0.0, 0.0, 0.0, 0.0]
-                    }
+                    "format": "r32g32b32a32_sfloat",
+                    "usageFlags": "color_attachment | storage | sampled",
+                    "width": 512,
+                    "height": 512
                 }
-            ]
+            ],
+            "clearValue": {
+                "color": [0.0, 0.0, 0.0, 0.0]
+            }
         },
         {
             "typeName": "RenderNodeComputeGeneric",
@@ -75,6 +81,29 @@
             },
             "shader": "rendershaders://computeshader/sr_adam_optimizer.shader",
             "threadGroupSize": [8, 8, 1],
+            "gpuImageDescs": [
+                {
+                    "name": "lrTexture",
+                    "format": "r8g8b8a8_unorm",
+                    "usageFlags": "color_attachment | storage | sampled",
+                    "width": 512,
+                    "height": 512
+                },
+                {
+                    "name": "lrMomentum1",
+                    "format": "r32g32b32a32_sfloat",
+                    "usageFlags": "storage | sampled",
+                    "width": 512,
+                    "height": 512
+                },
+                {
+                    "name": "lrMomentum2",
+                    "format": "r32g32b32a32_sfloat",
+                    "usageFlags": "storage | sampled",
+                    "width": 512,
+                    "height": 512
+                }
+            ],
             "resources": [
                 {
                     "type": "image",
@@ -105,49 +134,6 @@
                 {
                     "type": "pushConstant",
                     "size": 20
-                }
-            ]
-        },
-        {
-            "typeName": "RenderNodeFullscreenGeneric",
-            "nodeName": "SplitScreenDisplay",
-            "queue": {
-                "type": "graphics",
-                "index": 0
-            },
-            "shader": "rendershaders://shader/split_screen_display.shader",
-            "renderPass": {
-                "attachments": [
-                    {
-                        "loadOp": "clear",
-                        "storeOp": "store",
-                        "name": "CORE_DEFAULT_BACKBUFFER",
-                        "clearValue": {
-                            "color": [0.0, 0.0, 0.0, 1.0]
-                        }
-                    }
-                ],
-                "subpass": {
-                    "colorAttachmentIndices": 0
-                }
-            },
-            "resources": [
-                {
-                    "type": "texture",
-                    "name": "gtRenderTarget",
-                    "binding": 0,
-                    "usage": "sampled"
-                },
-                {
-                    "type": "texture",
-                    "name": "optRenderTarget",
-                    "binding": 1,
-                    "usage": "sampled"
-                },
-                {
-                    "type": "sampler",
-                    "name": "linearSampler",
-                    "binding": 2
                 }
             ]
         }
