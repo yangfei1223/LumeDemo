@@ -263,6 +263,9 @@ private:
                                                CameraComponent::PipelineFlagBits::VELOCITY_OUTPUT_BIT |
                                                CameraComponent::PipelineFlagBits::DEPTH_OUTPUT_BIT;
                 cameraHandle->renderingPipeline = CameraComponent::RenderingPipeline::DEFERRED;
+                
+                // Log deferred rendering confirmation
+                CORE_LOG_I("Using DEFERRED rendering pipeline");
             }
             const auto& sceneUtil = graphicsContext_->GetSceneUtil();
             sceneUtil.UpdateCameraViewport(*ecs_, activeCamera_, { windowWidth_, windowHeight_ }, false, 60.f, 1.f);
