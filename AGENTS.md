@@ -204,3 +204,168 @@ GetPluginRegister().LoadPlugins(uidRender);
 - **Upstream**: https://github.com/jsnchng/LumeDemo
 - **Fork**: https://github.com/yangfei1223/LumeDemo
 - **Vulkan SDK**: https://vulkan.lunarg.com/sdk/home
+
+---
+
+## SR Training Project
+
+### Goal
+
+实现**可微纹理超分辨率训练系统**，基于 LumeEngine 的 Render Node Graph 架构。
+
+**核心原则**: "RDG as the Loop" - 训练完全在渲染管线内完成，不使用 Autodiff 引擎。
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Render Node Graph                            │
+├─────────────────────────────────────────────────────────────────┤
+│  CameraController → MaterialRenderSlot → DeferredShading        │
+│         ↓                                                        │
+│  G-Buffer (color, depth, normal, base_color, uv, material)      │
+│         ↓                                                        │
+│  SR_RESOURCES (创建训练资源: lr_texture, gt_image, gradients)   │
+│         ↓                                                        │
+│  SR_TRAINING (Downsample → Forward → Loss → Backward → Adam)   │
+│         ↓                                                        │
+│  LR_DISPLAY → BACKBUFFER                                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Discoveries
+
+#### 1. RNG Registration Mechanism (CRITICAL)
+
+**错误理解**: 设置 `RenderConfigurationComponent.customRenderNodeGraphFile`
+**正确方式**: 设置 `CameraComponent.customRenderNodeGraphFile`
+
+```cpp
+// Camera RNG is what actually renders the scene
+auto cameraHandle = cameraManager_->Write(cameraEntity_);
+cameraHandle->customRenderNodeGraphFile = "assets://app/renderNodeGraph_sr_simplified.json";
+```
+
+**原因**:
+- `RenderConfigurationComponent.customRenderNodeGraphFile` → Scene RNG (后处理等，不直接渲染)
+- `CameraComponent.customRenderNodeGraphFile` → Camera RNG (实际渲染场景)
+
+#### 2. Post Process RNG Behavior
+
+当设置 `customRenderNodeGraphFile` 后，内置的 post process RNG **不会**被创建。
+
+**代码逻辑** (`render_util.cpp` line 481-488):
+```cpp
+if (renderCamera.customRenderNodeGraphFile.empty()) {
+    // 只有当 customRenderNodeGraphFile 为空时才获取 post process
+    desc = GetBasePostProcessDesc(renderCamera);
+}
+```
+
+**解决方案**: 自定义 RNG 必须包含输出到 backbuffer 的节点（如 `RenderNodeDefaultFinalCompose`）。
+
+#### 3. Render Slot System
+
+| Render Slot | G-Buffer Outputs | Purpose |
+|------------|------------------|---------|
+| `CORE3D_RS_DM_DF_OPAQUE` | 4 outputs | Standard deferred |
+| `CORE3D_RS_DM_DF_OPAQUE_UV` | 5 outputs (adds UV) | Deferred + UV coordinates |
+
+材料通过 `MaterialComponent.materialShader.graphicsState.renderSlot` 或 `customRenderSlotId` 分配到 render slot。
+
+### Current Status
+
+#### ✅ Completed
+- `RenderNodeSRTraining` C++ 实现（4-pass 结构）
+- `sr_differentiable_render.comp` shader（Mega Kernel: Forward + Loss + Backward）
+- `sr_adam_optimizer.comp` shader
+- `texture_downsample.comp` shader
+- `renderNodeGraph_sr_simplified.json` 配置
+- C++ binding 修复（匹配 shader binding）
+- 发现 RNG 注册机制问题
+- 发现 post process RNG 行为
+
+#### ⏳ In Progress
+- 验证自定义 RNG 完整执行
+
+#### ❌ Blocked
+- 自定义 RNG 黑屏问题
+
+### Gap Analysis
+
+| 问题 | 状态 | 解决方案 |
+|------|------|----------|
+| RNG 注册位置错误 | ✅ 已解决 | 使用 `CameraComponent.customRenderNodeGraphFile` |
+| render_system.cpp bug | ✅ 已解决 | `createNewRng` → `createNewCustomRng` |
+| Post process RNG 未创建 | ✅ 已理解 | 自定义 RNG 必须包含 FinalCompose |
+| 自定义 RNG 黑屏 | ⏳ 调试中 | 需要验证 RNG 结构与内置一致 |
+
+### Relevant Files
+
+```
+LumeDemo/
+├── src/application.cpp                    # RNG 注册 (CameraComponent)
+├── assets/app/
+│   ├── renderNodeGraph.json               # 基础 RNG (4 nodes + FinalCompose)
+│   └── renderNodeGraph_sr_simplified.json # SR 训练 RNG
+│
+├── Lume3D/src/
+│   ├── ecs/systems/render_system.cpp      # RNG 创建逻辑
+│   └── util/render_util.cpp               # SelectBaseDesc, LoadRenderNodeGraph
+│
+└── LumeRender/src/postprocesses/
+    ├── render_node_sr_training.h
+    └── render_node_sr_training.cpp
+```
+
+### Debug Checklist
+
+- [ ] 自定义 RNG 是否包含 FinalCompose 节点？
+- [ ] `renderSlot` 是否与材料匹配？
+- [ ] G-buffer GPU images 格式是否正确？
+- [ ] `subpassCount` 和 `colorAttachmentIndices` 是否匹配？
+- [ ] 资源绑定 `nodeName` 和 `usageName` 是否正确？
+
+### Gap Analysis (Detailed)
+
+#### 核心问题：自定义 RNG 架构设计
+
+**当前理解**:
+
+LumeEngine 的渲染管线分为两部分：
+1. **Camera RNG** - 渲染场景到 G-buffer / color
+2. **Post Process RNG** - 将 color 输出到 backbuffer
+
+**内置管线结构**:
+```
+Camera RNG (deferred, 6 nodes)
+  ↓ 输出到 color/depth/velocity_normal
+Post Process RNG (1 node: RenderNodeDefaultCameraPostProcessController)
+  ↓ 输出到 backbuffer
+```
+
+**问题**:
+- 设置 `customRenderNodeGraphFile` 后，post process RNG **不会自动创建**
+- `RenderNodeDefaultFinalCompose` 可能不是正确的输出节点
+- 需要理解 `RenderNodeDefaultCameraPostProcessController` 的工作方式
+
+**可能的解决方案**:
+1. 方案A: 在自定义 RNG 中包含 post process 逻辑
+2. 方案B: 同时设置 `customPostProcessRenderNodeGraphFile`
+3. 方案C: 自定义 RNG 完全不依赖 post process，直接输出到 backbuffer
+
+#### 待验证的技术问题
+
+| 问题 | 影响 | 验证方法 |
+|------|------|----------|
+| `renderDataStore` 配置缺失 | FinalCompose 可能无法正确获取相机数据 | 对比内置节点配置 |
+| Post process controller 依赖 | 可能需要特定的 render data store | 查看 RenderNodeDefaultCameraPostProcessController 源码 |
+| 资源绑定方式 | FinalCompose 的 color 绑定是否正确 | 检查 shader 和资源绑定 |
+
+### Next Steps
+
+1. **理解 RenderNodeDefaultCameraPostProcessController** - 它如何工作，需要什么配置
+2. **验证方案B** - 同时设置 `customPostProcessRenderNodeGraphFile`
+3. **或验证方案A** - 完全自定义 RNG，包含所有输出逻辑
+4. 逐步添加 SR 训练节点
+5. 验证训练逻辑执行

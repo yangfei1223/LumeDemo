@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cinttypes>
+#include <cstdio>
 
 #include <base/math/mathf.h>
 #include <base/math/quaternion.h>
@@ -149,6 +150,17 @@ public:
             const auto& sceneUtil = graphicsContext_->GetSceneUtil();
             cameraEntity_ = sceneUtil.CreateCamera(*ecs_, Math::Vec3(0.f, 0.f, 3.f), {}, 0.1f, 1000.f, 60.f);
             activeCamera_ = cameraEntity_;
+            
+            // Set custom RNG on CameraComponent (not RenderConfigurationComponent!)
+            // This tells RenderSystem to use our SR training RNG instead of built-in
+            auto cameraHandle = cameraManager_->Write(cameraEntity_);
+            if (cameraHandle) {
+                // Use SR training RNG
+                cameraHandle->customRenderNodeGraphFile = "assets://app/renderNodeGraph_sr_simplified.json";
+                printf("[MinimalDemo] Set camera custom RNG: %s\n", 
+                       cameraHandle->customRenderNodeGraphFile.c_str());
+                fflush(stdout);
+            }
         }
         {
             const char* filename = "assets://glTF/DamagedHelmet/glTF/DamagedHelmet.gltf";
@@ -175,6 +187,14 @@ public:
         if (needRender) {
             IRenderer& renderer = renderContext_->GetRenderer();
             const auto ecsRngs = graphicsContext_->GetRenderNodeGraphs(*ecs);
+            
+            // Debug: log RNG count
+            static bool loggedOnce = false;
+            if (!loggedOnce) {
+                CORE_LOG_I("OnFrame: GetRenderNodeGraphs returned %zu RNGs", ecsRngs.size());
+                loggedOnce = true;
+            }
+            
             vector<RenderHandleReference> rngs(ecsRngs.begin(), ecsRngs.end());
             renderer.RenderFrame(rngs);
         }
