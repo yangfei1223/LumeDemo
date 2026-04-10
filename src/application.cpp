@@ -49,13 +49,11 @@
 #include "application_config.h"
 #include "application_factory.h"
 #include "application_interface.h"
-#include "diff_texture_sr.h"
 
 using namespace BASE_NS;
 using namespace CORE_NS;
 using namespace RENDER_NS;
 using namespace CORE3D_NS;
-using namespace LumeDemo;
 
 class MinimalDemo : public IApplication {
 public:
@@ -63,11 +61,8 @@ public:
     
     ~MinimalDemo() override = default;
 
-    // Texture Super-Resolution Manager
-    DiffTextureSRManager srManager_;
-    bool isTraining_ = false;
-    uint32_t frameCount_ = 0;
-    bool gtTextureInitialized_ = false;  // Flag to track GT texture initialization
+    // Training state (controlled by T key)
+    bool isTraining_ = true;  // Training ON by default - RenderNode handles the loop
 
     IDevice* OnInit(PlatformCreateInfo platformCreateInfo) override
     {
@@ -104,16 +99,7 @@ public:
         graphicsContext_ = CreateInstance<IGraphicsContext>(*renderContext_->GetInterface<IClassFactory>(), UID_GRAPHICS_CONTEXT);
         graphicsContext_->Init();
 
-        // Initialize Texture Super-Resolution Manager
-        srManager_.Initialize(*renderContext_, *ecs_, *graphicsContext_);
-        srManager_.SetTraining(false);  // Training off by default
-        CORE_LOG_I("DiffTextureSRManager initialized");
-
-        // Run self-test and write results to file
-        srManager_.RunSelfTest("sr_test_results.txt");
-
-        // Run Phase 4 compute shader test
-        srManager_.RunComputeShaderTest("sr_compute_test_results.txt");
+        CORE_LOG_I("MinimalDemo: Initialized with RenderNodeSRTraining graph");
 
         return device;
     }
@@ -142,7 +128,8 @@ public:
         ecs_->Initialize();
         transformManager_ = GetManager<ITransformComponentManager>(*ecs_);
         cameraManager_ = GetManager<ICameraComponentManager>(*ecs_);
-        renderNodeGraph_ = CreateRenderNodeGraph("assets://app/renderNodeGraph.json");
+        // Use SR training render node graph
+        renderNodeGraph_ = CreateRenderNodeGraph("assets://app/renderNodeGraph_sr_simplified.json");
         {
             auto* nodeSystem = GetSystem<INodeSystem>(*ecs_);
             auto rootNode = nodeSystem->CreateNode();
@@ -179,16 +166,8 @@ public:
 
     void OnFrame() override
     {
-        // Training loop
-        if (srManager_.IsTraining()) {
-            srManager_.OptimizeStep();
-            
-            // Update camera every 10 frames
-            frameCount_++;
-            if (frameCount_ % 10 == 0) {
-                srManager_.UpdateCameraTransform(cameraEntity_);
-            }
-        }
+        // Training loop is handled by RenderNodeSRTraining in the render node graph
+        // T key toggles training via render node configuration
         
         UpdateCamera();
         auto* ecs = ecs_.get();
@@ -198,22 +177,6 @@ public:
             const auto ecsRngs = graphicsContext_->GetRenderNodeGraphs(*ecs);
             vector<RenderHandleReference> rngs(ecsRngs.begin(), ecsRngs.end());
             renderer.RenderFrame(rngs);
-            
-            // Initialize GT texture from base_color output after first frame
-            if (!gtTextureInitialized_ && renderNodeGraph_) {
-                IRenderNodeGraphManager& graphManager = renderContext_->GetRenderNodeGraphManager();
-                auto resourceInfo = graphManager.GetRenderNodeGraphResources(renderNodeGraph_);
-                
-                // base_color is at index 3 in output resources (output, color, depth, base_color)
-                if (resourceInfo.outputResources.size() > 3) {
-                    auto baseColorHandle = resourceInfo.outputResources[3];
-                    if (baseColorHandle && baseColorHandle.GetHandle().id != 0) {
-                        srManager_.SetGTTextureFromRenderOutput(baseColorHandle);
-                        gtTextureInitialized_ = true;
-                        CORE_LOG_I("OnFrame: GT texture initialized from base_color output");
-                    }
-                }
-            }
         }
     }
 
@@ -279,20 +242,9 @@ public:
             UpdateCameraTransform();
         }
         
-        // Training control: T key = 84 - Toggle training
-        if (key == 84 && action == 1) { // GLFW_KEY_T
-            isTraining_ = !isTraining_;
-            srManager_.SetTraining(isTraining_);
-            CORE_LOG_I("Training: %s (iteration %d)", isTraining_ ? "ON" : "OFF", srManager_.GetIteration());
-        }
-        
-        // S key = 83 - Single step training
-        if (key == 83 && action == 1) { // GLFW_KEY_S
-            srManager_.SetTraining(true);
-            srManager_.OptimizeStep();
-            srManager_.SetTraining(false);
-            CORE_LOG_I("Single step training executed (iteration %d)", srManager_.GetIteration());
-        }
+        // Training control is handled by RenderNodeSRTraining
+        // T key (84) toggles training - handled by render node config
+        // S key (83) single step - handled by render node config
     }
 
 private:

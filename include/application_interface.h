@@ -21,6 +21,9 @@ public:
     virtual void OnMouseButton(int button, int action, int mods) = 0;
     virtual void OnMouseScroll(double xoffset, double yoffset) = 0;
     virtual void OnKey(int key, int scancode, int action, int mods) = 0;
+    
+    // Screenshot - returns true if successful
+    virtual bool OnScreenshot(const char* filename) { return false; }
 };
 
 #endif // APPLICATION_INTERFACE_H

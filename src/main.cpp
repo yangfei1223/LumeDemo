@@ -13,6 +13,8 @@
 #include <GLFW/glfw3.h>
 
 #include <memory>
+#include <cstring>
+#include <cstdio>
 
 #include <core/io/intf_file_manager.h>
 #include <core/log.h>
@@ -23,6 +25,7 @@
 #include "application_config.h"
 #include "application_factory.h"
 #include "application_interface.h"
+#include "screenshot.h"
 
 namespace {
     uint64_t CreateSurface(std::unique_ptr<IApplication>& app, GLFWwindow* windowHandle, RENDER_NS::IDevice* device)
@@ -117,15 +120,42 @@ static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 
 static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+    // Write to file for debugging
+    FILE* f = fopen("key_debug.txt", "a");
+    if (f) {
+        fprintf(f, "KeyCallback: key=%d scancode=%d action=%d mods=%d\n", key, scancode, action, mods);
+        fclose(f);
+    }
+    
     auto* app = static_cast<IApplication*>(glfwGetWindowUserPointer(window));
     if (app) {
         app->OnKey(key, scancode, action, mods);
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     constexpr int width = 1600;
     constexpr int height = 900;
+    
+    // Parse command line arguments
+    bool autoTest = false;
+    int testFrames = 10;
+    const char* outputFile = "test_output.ppm";
+    
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--test") == 0) {
+            autoTest = true;
+        } else if (strcmp(argv[i], "--frames") == 0 && i + 1 < argc) {
+            testFrames = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
+            outputFile = argv[++i];
+        }
+    }
+    
+    if (autoTest) {
+        CORE_LOG_I("=== AUTO TEST MODE ===");
+        CORE_LOG_I("Will render %d frames and exit", testFrames);
+    }
 
     const CORE_NS::PlatformCreateInfo platformCreateInfo{};
     CORE_NS::CreatePluginRegistry(platformCreateInfo);
@@ -169,9 +199,18 @@ int main() {
     app->OnWindowUpdate(swapchainCreateInfo, width, height);
     app->OnStart();
 
+    int frameCount = 0;
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         app->OnFrame();
+        frameCount++;
+        
+        // Auto test mode: exit after N frames
+        if (autoTest && frameCount >= testFrames) {
+            CORE_LOG_I("=== AUTO TEST COMPLETE: Rendered %d frames ===", frameCount);
+            CORE_LOG_I("=== Note: Use Vulkan readback for proper screenshot ===");
+            break;
+        }
     }
 
     app->OnStop();
